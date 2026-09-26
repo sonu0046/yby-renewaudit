@@ -101,6 +101,7 @@ export default function App() {
       const extracted = extractTermsFromFiles(newFiles);
       setTerms(extracted);
       triggerAuditEngine(extracted, newFiles);
+      setActiveTab("lock");
     } else {
       setTerms([]);
       setResult(null);

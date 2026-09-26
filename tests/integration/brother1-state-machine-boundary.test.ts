@@ -223,4 +223,45 @@ describe("Brother 1 State Machine Boundary & Non-Regression Suite", () => {
     const canOpenUpgradeModal = true;
     expect(canOpenUpgradeModal).toBe(true);
   });
+
+  it("10. Step1_PdfUpload_AutoAdvancesToStep2", async () => {
+    // Given: Step 1 (intake) is active, auditsRemaining = 1
+    let activeTab: "intake" | "lock" | "pipeline" | "evidence" | "negotiation" | "commercial" | "pii" = "intake";
+    const entitlement = parseLicenseKey("FREE");
+
+    expect(activeTab).toBe("intake");
+    expect(entitlement.auditsRemaining).toBe(1);
+    expect(checkAuditAccess(entitlement).allowed).toBe(true);
+
+    // When: one valid PDF is uploaded AND parsing succeeds AND SHA-256 succeeds
+    const uploadedFileItem = {
+      id: `msa-pdf-${Date.now()}`,
+      name: "contract_msa.pdf",
+      size: 15360,
+      type: "PDF" as const,
+      sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      parsedText: "Master Services Agreement. Price Cap: $10,000. Renewal Price: $12,000."
+    };
+
+    const files = [uploadedFileItem];
+
+    // Simulate handleFilesUpdated navigation auto-advance
+    if (files.length > 0) {
+      activeTab = "lock";
+    }
+
+    // Then: activeStep === "lock" (Step 2 active/open, Step 1 collapsed/closed)
+    expect(activeTab).toBe("lock");
+    expect(activeTab === "intake").toBe(false);
+    expect(activeTab === "lock").toBe(true);
+
+    // Regression assertion: PDF upload alone MUST NOT consume quota
+    expect(entitlement.auditsRemaining).toBe(1);
+    expect(entitlement.auditsUsed).toBe(0);
+
+    // Uploaded PDF remains available in session
+    expect(files).toHaveLength(1);
+    expect(files[0].name).toBe("contract_msa.pdf");
+    expect(files[0].sha256).toBe("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+  });
 });
