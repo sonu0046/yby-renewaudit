@@ -15,11 +15,21 @@ import { sha256 } from "../../src/security/hashing/sha256";
 
 describe("G8.6 STEP 2 — Real File Intake & Local Parsing Suite", () => {
   it("1. Valid PDF file is accepted by validator", async () => {
-    const file = new File(["%PDF-1.4 dummy pdf content"], "msa_contract.pdf", { type: "application/pdf" });
+    const file = new File(["%PDF-1.4 (SERVICE AGREEMENT AUDIT TEST CONTRACT priceCap: 10000 renewalPrice: 12000)"], "msa_contract.pdf", { type: "application/pdf" });
     const result = await validateStep2File(file);
     expect(result.valid).toBe(true);
     expect(result.fileType).toBe("PDF");
     expect(result.sha256).toHaveLength(64);
+  });
+
+  it("1b. Valid text-based PDF document parses extractable text cleanly", async () => {
+    const file = new File(["%PDF-1.4 (SERVICE AGREEMENT price cap 10000 renewal price 12000 contracted seats 100)"], "msa_contract.pdf", { type: "application/pdf" });
+    const doc = await parsePdfDocument(file);
+    expect(doc.fileType).toBe("PDF");
+    expect(doc.sha256).toHaveLength(64);
+    expect(doc.isEmptyText).toBe(false);
+    expect(doc.pages.length).toBeGreaterThan(0);
+    expect(doc.pages[0].text).toContain("SERVICE AGREEMENT");
   });
 
   it("2. Invalid file type is rejected by validator", async () => {
@@ -67,7 +77,7 @@ describe("G8.6 STEP 2 — Real File Intake & Local Parsing Suite", () => {
   });
 
   it("9. Scanned/empty-text PDF triggers empty text flag", async () => {
-    const file = new File(["%PDF-1.4 %image only binary data"], "scanned.pdf", { type: "application/pdf" });
+    const file = new File(["%PDF-1.4 %binary data only"], "scanned.pdf", { type: "application/pdf" });
     const doc = await parsePdfDocument(file);
     expect(doc.fileType).toBe("PDF");
     expect(doc.sha256).toHaveLength(64);

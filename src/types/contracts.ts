@@ -71,3 +71,29 @@ export interface ReconciliationResult {
   evidence: EvidenceRecord[];
   blocked: boolean;
 }
+
+export interface NegotiationItem {
+  ruleId: string;
+  title: string;
+  severity: "INFO" | "WARNING" | "HIGH";
+  findingText: string;
+  financialImpactFormatted: string;
+  numericDelta: number;
+  negotiationPosition: string;
+  suggestedAsk: string;
+  formulaTrail: string;
+  sourceFile: string;
+  sourceHash: string;
+  locationRef: string;
+  supportingTerms: string[];
+}
+
+export interface NegotiationDraft {
+  generatedAt: string;
+  overallStatus: "PASS" | "BLOCKED";
+  totalOverchargeAmount: number;
+  totalShelfwareSeats: number;
+  items: NegotiationItem[];
+  isHumanLocked: boolean;
+}
+

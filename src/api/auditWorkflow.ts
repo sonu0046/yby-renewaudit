@@ -5,6 +5,7 @@ import { toEvidence } from "../evidence/traceability/validate";
 import { buildEvidencePack } from "../evidence/pack/build";
 import { extractTermsFromFiles, type FileIntakeItem } from "../parsers/extractor";
 import { canCalculate } from "../state/humanLock";
+import { validateGate0Safeguards } from "../licensing/entitlement";
 import type { AuditPayload, CalculationTerm, GateStatus, ReconciliationResult } from "../types";
 
 export type WorkflowStepState =
@@ -31,7 +32,7 @@ export interface Step2ValidationResult {
   sha256: string;
   status: GateStatus;
   reason?: string;
-  errorCode?: "UNSUPPORTED_TYPE" | "EMPTY_FILE" | "OVERSIZED_FILE" | "PARSING_FAILED";
+  errorCode?: "UNSUPPORTED_TYPE" | "EMPTY_FILE" | "OVERSIZED_FILE" | "PARSING_FAILED" | "FILE_TOO_LARGE" | "ROW_LIMIT_EXCEEDED";
   errorMessage?: string;
 }
 
@@ -88,7 +89,7 @@ export async function validateStep2File(file: File): Promise<Step2ValidationResu
   let buffer: Uint8Array;
   if (typeof file.arrayBuffer === "function") {
     const ab = await file.arrayBuffer();
-    buffer = new Uint8Array(ab);
+    buffer = new Uint8Array(ab.slice(0));
   } else if (typeof (file as any).text === "function") {
     const text = await (file as any).text();
     buffer = new TextEncoder().encode(text);
@@ -96,7 +97,7 @@ export async function validateStep2File(file: File): Promise<Step2ValidationResu
     buffer = new Uint8Array(
       await new Promise<ArrayBuffer>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as ArrayBuffer);
+        reader.onload = () => resolve(((reader.result as ArrayBuffer) || new ArrayBuffer(0)).slice(0));
         reader.onerror = reject;
         reader.readAsArrayBuffer(file);
       })
@@ -135,8 +136,9 @@ export async function validateStep2File(file: File): Promise<Step2ValidationResu
     };
   }
 
-  if (file.size > 50 * 1024 * 1024) {
-    const msg = "File size exceeds maximum 50MB limit.";
+  const safeguard = validateGate0Safeguards(file);
+  if (!safeguard.valid) {
+    const msg = safeguard.errorMessage || "File exceeds technical safeguard limit.";
     return {
       valid: false,
       fileType: isPdf ? "PDF" : "CSV",
@@ -145,7 +147,7 @@ export async function validateStep2File(file: File): Promise<Step2ValidationResu
       sha256: hash,
       status: "REJECT",
       reason: msg,
-      errorCode: "OVERSIZED_FILE",
+      errorCode: safeguard.errorCode || "FILE_TOO_LARGE",
       errorMessage: msg
     };
   }

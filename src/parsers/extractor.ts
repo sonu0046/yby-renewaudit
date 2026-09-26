@@ -12,25 +12,35 @@ export interface FileIntakeItem {
 }
 
 export function extractTermsFromFiles(files: FileIntakeItem[]): CalculationTerm[] {
+  if (!files || files.length === 0) {
+    return [];
+  }
+
   const terms: CalculationTerm[] = [];
 
-  const contractFile = files.find((f) => f.name.toLowerCase().includes("contract") || f.name.toLowerCase().includes("msa"));
-  const renewalFile = files.find((f) => f.name.toLowerCase().includes("renewal") || f.name.toLowerCase().includes("quote"));
-  const usageFile = files.find((f) => f.name.toLowerCase().includes("usage") || f.name.toLowerCase().includes("okta"));
-  const invoiceFile = files.find((f) => f.name.toLowerCase().includes("invoice"));
+  const contractFile = files.find((f) => f.name.toLowerCase().includes("contract") || f.name.toLowerCase().includes("msa")) || files[0];
+  const renewalFile = files.find((f) => f.name.toLowerCase().includes("renewal") || f.name.toLowerCase().includes("quote")) || contractFile;
+  const usageFile = files.find((f) => f.name.toLowerCase().includes("usage") || f.name.toLowerCase().includes("okta") || f.name.toLowerCase().endsWith(".csv")) || contractFile;
 
-  // Default fallback source reference
-  const contractRef: SourceRef = contractFile
-    ? { fileName: contractFile.name, fileSha256: contractFile.sha256, page: 4 }
-    : { fileName: "contract_msa.pdf", fileSha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", page: 4 };
+  // Provenance references MUST strictly point to files actually present in current audit intake
+  const contractRef: SourceRef = {
+    fileName: contractFile.name,
+    fileSha256: contractFile.sha256,
+    page: 1
+  };
 
-  const renewalRef: SourceRef = renewalFile
-    ? { fileName: renewalFile.name, fileSha256: renewalFile.sha256, row: 12 }
-    : { fileName: "renewal_quote_2026.pdf", fileSha256: "8f434346648f6b96df89dda901c5176b10a6d83961dd3c1ac88b59b2dc327aa4", row: 12 };
+  const renewalRef: SourceRef = {
+    fileName: renewalFile.name,
+    fileSha256: renewalFile.sha256,
+    page: 1
+  };
 
-  const usageRef: SourceRef = usageFile
-    ? { fileName: usageFile.name, fileSha256: usageFile.sha256, row: 20 }
-    : { fileName: "okta_usage_report.csv", fileSha256: "1f3870be274f6c49b3e31a0c6728957f6d338f0d8a57e3f4236968222d4f3b79", row: 20 };
+  const usageRef: SourceRef = {
+    fileName: usageFile.name,
+    fileSha256: usageFile.sha256,
+    row: usageFile.type === "csv" || usageFile.name.toLowerCase().endsWith(".csv") ? 1 : undefined,
+    page: usageFile.type === "csv" || usageFile.name.toLowerCase().endsWith(".csv") ? undefined : 1
+  };
 
   // Parse priceCap
   let capVal = 10000;
@@ -41,15 +51,17 @@ export function extractTermsFromFiles(files: FileIntakeItem[]): CalculationTerm[
 
   // Parse renewalPrice
   let renewalVal = 12000;
-  if (renewalFile?.parsedText) {
-    const match = renewalFile.parsedText.match(/(?:total|renewal price|amount)\s*[:=]?\s*\$?([\d,]+)/i);
+  const renewalText = renewalFile?.parsedText || contractFile?.parsedText;
+  if (renewalText) {
+    const match = renewalText.match(/(?:total|renewal price|amount)\s*[:=]?\s*\$?([\d,]+)/i);
     if (match) renewalVal = parseFloat(match[1].replace(/,/g, ""));
   }
 
   // Parse contractedSeats
   let contractedSeatsVal = 100;
-  if (contractFile?.parsedText) {
-    const match = contractFile.parsedText.match(/(?:seats|licensed seats|users)\s*[:=]?\s*(\d+)/i);
+  const seatsText = contractFile?.parsedText || renewalFile?.parsedText;
+  if (seatsText) {
+    const match = seatsText.match(/(?:seats|licensed seats|users)\s*[:=]?\s*(\d+)/i);
     if (match) contractedSeatsVal = parseInt(match[1], 10);
   }
 

@@ -4,22 +4,42 @@ import { FileDropzone } from "./components/intake/FileDropzone";
 import { HumanLockGrid } from "./components/lock/HumanLockGrid";
 import { WorkflowSteps } from "./components/workflow/WorkflowSteps";
 import { EvidencePack } from "./components/evidence/EvidencePack";
+import { NegotiationDraftView } from "./components/negotiation/NegotiationDraftView";
+import { CommercialTermsView } from "./components/commercial/CommercialTermsView";
+import { LicenseActivationModal } from "./components/commercial/LicenseActivationModal";
+import { parseLicenseKey, checkAuditAccess, consumeAuditCredit, PLAN_CONFIGS, loadPersistedEntitlement, savePersistedEntitlement } from "./licensing/entitlement";
+import type { EntitlementState } from "./licensing/types";
 import type { AuditPayload, ReconciliationResult, CalculationTerm } from "./types";
 import { extractTermsFromFiles, type FileIntakeItem } from "./parsers/extractor";
 import "./styles.css";
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<"intake" | "lock" | "pipeline" | "evidence" | "pii">("intake");
+  const [activeTab, setActiveTab] = useState<"intake" | "lock" | "pipeline" | "evidence" | "negotiation" | "commercial" | "pii">("intake");
   const [files, setFiles] = useState<FileIntakeItem[]>([]);
   const [terms, setTerms] = useState<CalculationTerm[]>([]);
   const [progress, setProgress] = useState(0);
   const [result, setResult] = useState<ReconciliationResult | null>(null);
   const [piiInput, setPiiInput] = useState("Contact procurement lead john.doe@techcorp.com or call +91 98765 43210 for contract #88491.");
   const [redactedText, setRedactedText] = useState("");
+  const [entitlement, setEntitlement] = useState<EntitlementState>(() => loadPersistedEntitlement());
+  const [showLicenseModal, setShowLicenseModal] = useState(false);
+  const [consumedForCurrentSession, setConsumedForCurrentSession] = useState(false);
+
+  function updateEntitlementState(newState: EntitlementState) {
+    setEntitlement(newState);
+    savePersistedEntitlement(newState);
+  }
 
   function triggerAuditEngine(currentTerms: CalculationTerm[], currentFiles: FileIntakeItem[]) {
     if (currentTerms.length === 0) {
       setResult(null);
+      return;
+    }
+
+    const access = checkAuditAccess(entitlement);
+    if (!access.allowed && !consumedForCurrentSession) {
+      alert(`Gate 0 Licensing Check Failed: ${access.reason}`);
+      setShowLicenseModal(true);
       return;
     }
 
@@ -46,6 +66,16 @@ export default function App() {
       } else if (e.data?.gates || e.data?.payload?.gates) {
         const res = e.data.gates ? e.data : e.data.payload;
         setResult(res);
+        const gatesList = res.gates || [];
+        const allGatesPassed = gatesList.length > 0 && gatesList.every((g: any) => g.status === "PASS");
+        if (allGatesPassed && !consumedForCurrentSession) {
+          setEntitlement((prev) => {
+            const next = consumeAuditCredit(prev);
+            savePersistedEntitlement(next);
+            return next;
+          });
+          setConsumedForCurrentSession(true);
+        }
       }
     };
     worker.postMessage({ type: "PROCESS", payload });
@@ -53,6 +83,8 @@ export default function App() {
 
   function handleFilesUpdated(newFiles: FileIntakeItem[]) {
     setFiles(newFiles);
+    // Note: We deliberately do NOT reset consumedForCurrentSession here
+    // Multiple PDFs added to the same audit session will NOT re-consume quota
     if (newFiles.length > 0) {
       const extracted = extractTermsFromFiles(newFiles);
       setTerms(extracted);
@@ -97,11 +129,26 @@ export default function App() {
             <p>Audit the renewal before you approve it.</p>
           </div>
         </div>
-        <div className="header-status">
+        <div className="header-status" style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: "0.8rem", padding: "4px 10px", borderColor: entitlement.status === "ACTIVE" ? "rgba(16, 185, 129, 0.4)" : "rgba(244, 63, 94, 0.4)" }}
+            onClick={() => setShowLicenseModal((prev) => !prev)}
+          >
+            🔑 {PLAN_CONFIGS[entitlement.plan]?.name || entitlement.plan} ({entitlement.auditsRemaining} Audits Remaining)
+          </button>
           <span className="status-dot"></span>
           <span>Local Engine Active • Real-File Mode</span>
         </div>
       </header>
+
+      {showLicenseModal && (
+        <LicenseActivationModal
+          currentState={entitlement}
+          onStateChange={(newState) => updateEntitlementState(newState)}
+          onClose={() => setShowLicenseModal(false)}
+        />
+      )}
 
       {/* Executive Metrics Overview */}
       <div className="metrics-grid">
@@ -152,6 +199,18 @@ export default function App() {
           onClick={() => setActiveTab("evidence")}
         >
           🛡️ 4. Audit Findings & Evidence Pack
+        </button>
+        <button
+          className={`btn ${activeTab === "negotiation" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("negotiation")}
+        >
+          📜 5. Negotiation Draft
+        </button>
+        <button
+          className={`btn ${activeTab === "commercial" ? "btn-primary" : "btn-secondary"}`}
+          onClick={() => setActiveTab("commercial")}
+        >
+          💎 6. Commercial Model
         </button>
         <button
           className={`btn ${activeTab === "pii" ? "btn-primary" : "btn-secondary"}`}
@@ -207,7 +266,17 @@ export default function App() {
         )
       )}
 
-      {/* Tab 5: PII Redactor */}
+      {/* Tab 5: Negotiation Draft */}
+      {activeTab === "negotiation" && (
+        <NegotiationDraftView result={result} terms={terms} />
+      )}
+
+      {/* Tab 6: Commercial Terms */}
+      {activeTab === "commercial" && (
+        <CommercialTermsView identifiedSavings={priceCapVariance > 0 ? priceCapVariance : 2000} />
+      )}
+
+      {/* Tab 7: PII Redactor */}
       {activeTab === "pii" && (
         <section className="panel-card">
           <div className="panel-header">

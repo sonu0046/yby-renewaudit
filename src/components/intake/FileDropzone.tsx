@@ -42,6 +42,7 @@ export function FileDropzone({ onFilesUpdated, items }: FileDropzoneProps) {
           const pdfDoc: ParsedPdfDocument = await parsePdfDocument(file);
           if (pdfDoc.isEmptyText) {
             setParsingError(`Scanned PDF Reject (${file.name}): Image-only or scanned PDF has no extractable text. (G1/R6 Blocked)`);
+            continue;
           }
           parsedText = pdfDoc.pages.map((p) => `[Page ${p.pageNumber}] ${p.text}`).join("\n");
         } else if (validation.fileType === "CSV") {
