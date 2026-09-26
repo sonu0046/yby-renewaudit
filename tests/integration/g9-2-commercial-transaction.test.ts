@@ -4,7 +4,8 @@ import { computeWebhookHmac, getWebhookSecret, PaymentWebhookHandler } from "../
 import { generateCryptographicLicenseKey } from "../../src/commercial/server/provisioner";
 import { executeLocalReconciliationSync } from "../../src/api/auditWorkflow";
 import type { CalculationTerm } from "../../src/types";
-import { consumeAuditCredit, loadPersistedEntitlement, savePersistedEntitlement, parseLicenseKey } from "../../src/licensing/entitlement";
+import type { EntitlementState } from "../../src/licensing/types";
+import { checkAuditAccess, consumeAuditCredit, loadPersistedEntitlement, savePersistedEntitlement, parseLicenseKey } from "../../src/licensing/entitlement";
 
 describe("G9.2 Commercial Transaction & Quota State Machine Integration Suite", () => {
   beforeEach(() => {
@@ -311,5 +312,87 @@ describe("G9.2 Commercial Transaction & Quota State Machine Integration Suite", 
 
     expect(resFail.success).toBe(false);
     expect(resFail.provisionedKey).toBeUndefined();
+  });
+
+  it("16. PaymentCTA_Click_DoesNotActivateEntitlementBeforeServerVerification", async () => {
+    // Given: QUOTA_EXHAUSTED, auditsRemaining = 0
+    let state: EntitlementState = {
+      status: "QUOTA_EXHAUSTED",
+      plan: "FREE_FIRST_AUDIT",
+      auditsAllowed: 1,
+      auditsUsed: 1,
+      auditsRemaining: 0
+    };
+
+    expect(state.status).toBe("QUOTA_EXHAUSTED");
+    expect(state.auditsRemaining).toBe(0);
+    expect(checkAuditAccess(state).allowed).toBe(false);
+
+    // When: User clicks any paid CTA (Single, Monthly, Annual) but payment signature is unverified
+    const plansToTest = [
+      { plan: "SINGLE_AUDIT" as const, expectedAudits: 1, price: 2999 },
+      { plan: "PROFESSIONAL_MONTHLY" as const, expectedAudits: 5, price: 4999 },
+      { plan: "ANNUAL_PROFESSIONAL" as const, expectedAudits: 60, price: 49990 }
+    ];
+
+    for (const item of plansToTest) {
+      // 1. Unverified CTA Click Simulation -> Rejection before server verification
+      const unverifiedPayload = {
+        eventId: `evt_unverified_${item.plan}`,
+        eventType: "payment.captured" as const,
+        paymentId: `pay_unverified_${item.plan}`,
+        amountINR: item.price,
+        customerEmail: "user@domain.com",
+        planType: item.plan,
+        signature: "INVALID_UNVERIFIED_SIGNATURE"
+      };
+
+      const unverifiedRes = await PaymentWebhookHandler.handleWebhook(unverifiedPayload);
+
+      // Assert: Webhook verification fails
+      expect(unverifiedRes.success).toBe(false);
+      expect(unverifiedRes.provisionedKey).toBeUndefined();
+
+      // Assert: Entitlement remains QUOTA_EXHAUSTED, auditsRemaining remains 0, Gate 0 remains blocked
+      expect(state.status).toBe("QUOTA_EXHAUSTED");
+      expect(state.auditsRemaining).toBe(0);
+      expect(checkAuditAccess(state).allowed).toBe(false);
+
+      // 2. Verified Payment Simulation -> Only valid HMAC webhook signature provisions key & unlocks Gate 0
+      const eventId = `evt_verified_${item.plan}_${Date.now()}`;
+      const paymentId = `pay_verified_${item.plan}_${Date.now()}`;
+      const validSignature = await computeWebhookHmac(`${eventId}:${paymentId}:${item.plan}`, getWebhookSecret());
+
+      const verifiedRes = await PaymentWebhookHandler.handleWebhook({
+        eventId,
+        eventType: "payment.captured",
+        paymentId,
+        amountINR: item.price,
+        customerEmail: "user@domain.com",
+        planType: item.plan,
+        signature: validSignature
+      });
+
+      expect(verifiedRes.success).toBe(true);
+      expect(verifiedRes.provisionedKey).toBeDefined();
+
+      const valRes = ProductionLicensingService.handleValidateKeyRequest({
+        licenseKey: verifiedRes.provisionedKey!,
+        deviceHash: "default_device_hash"
+      });
+
+      const updatedState: EntitlementState = {
+        status: "ACTIVE",
+        plan: item.plan,
+        auditsAllowed: valRes.auditsRemaining || item.expectedAudits,
+        auditsUsed: 0,
+        auditsRemaining: valRes.auditsRemaining || item.expectedAudits
+      };
+
+      // Assert: Entitlement becomes ACTIVE, exact quota granted, Gate 0 unlocks
+      expect(updatedState.status).toBe("ACTIVE");
+      expect(updatedState.auditsRemaining).toBe(item.expectedAudits);
+      expect(checkAuditAccess(updatedState).allowed).toBe(true);
+    }
   });
 });
