@@ -91,9 +91,12 @@ export default function App() {
   }
 
   function handleFilesUpdated(newFiles: FileIntakeItem[]) {
+    const access = checkAuditAccess(entitlement);
+    if (!access.allowed) {
+      setShowLicenseModal(true);
+      return;
+    }
     setFiles(newFiles);
-    // Note: We deliberately do NOT reset consumedForCurrentSession here
-    // Multiple PDFs added to the same audit session will NOT re-consume quota
     if (newFiles.length > 0) {
       const extracted = extractTermsFromFiles(newFiles);
       setTerms(extracted);
@@ -232,7 +235,12 @@ export default function App() {
       {/* Tab 1: File Intake */}
       {activeTab === "intake" && (
         <section className="panel-card">
-          <FileDropzone onFilesUpdated={handleFilesUpdated} items={files} />
+          <FileDropzone
+            onFilesUpdated={handleFilesUpdated}
+            items={files}
+            disabled={!checkAuditAccess(entitlement).allowed}
+            onOpenLicenseModal={() => setShowLicenseModal(true)}
+          />
         </section>
       )}
 

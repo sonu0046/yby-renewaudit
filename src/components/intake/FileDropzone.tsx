@@ -4,17 +4,20 @@ import { parsePdfDocument } from "../../parsers/pdf";
 import { parseCsvDocument } from "../../parsers/csv";
 import type { FileIntakeItem } from "../../parsers/extractor";
 
-interface FileDropzoneProps {
+export interface FileDropzoneProps {
   onFilesUpdated: (files: FileIntakeItem[]) => void;
   items: FileIntakeItem[];
+  disabled?: boolean;
+  onOpenLicenseModal?: () => void;
 }
 
-export function FileDropzone({ onFilesUpdated, items }: FileDropzoneProps) {
+export function FileDropzone({ onFilesUpdated, items, disabled = false, onOpenLicenseModal }: FileDropzoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [parsingError, setParsingError] = useState<string | null>(null);
   const [validations, setValidations] = useState<Record<string, Step2ValidationResult>>({});
 
   async function processFiles(fileList: FileList | File[]) {
+    if (disabled) return;
     setParsingError(null);
     const newItems: FileIntakeItem[] = [...items];
     const newValidations: Record<string, Step2ValidationResult> = { ...validations };
@@ -76,12 +79,14 @@ export function FileDropzone({ onFilesUpdated, items }: FileDropzoneProps) {
   function handleDrop(e: React.DragEvent<HTMLDivElement>) {
     e.preventDefault();
     setIsDragging(false);
+    if (disabled) return;
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processFiles(e.dataTransfer.files);
     }
   }
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    if (disabled) return;
     if (e.target.files && e.target.files.length > 0) {
       processFiles(e.target.files);
     }
@@ -95,29 +100,68 @@ export function FileDropzone({ onFilesUpdated, items }: FileDropzoneProps) {
   return (
     <div className="dropzone-section">
       <div
-        className={`dropzone-box ${isDragging ? "dragging" : ""}`}
-        onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+        className={`dropzone-box ${isDragging ? "dragging" : ""} ${disabled ? "disabled-dropzone" : ""}`}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!disabled) setIsDragging(true);
+        }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
+        style={{
+          opacity: disabled ? 0.7 : 1,
+          borderColor: disabled ? "var(--accent-rose, #f43f5e)" : undefined,
+          background: disabled ? "rgba(244, 63, 94, 0.03)" : undefined
+        }}
       >
-        <div className="dropzone-icon">📄</div>
-        <h3>Drag & Drop Audit Files (PDF or CSV)</h3>
+        <div className="dropzone-icon">{disabled ? "🔒" : "📄"}</div>
+        <h3>{disabled ? "Gate 0 Hard Lock Active" : "Drag & Drop Audit Files (PDF or CSV)"}</h3>
         <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", margin: "8px 0" }}>
-          Upload Contract/Renewal PDF or Usage/Invoice CSV
+          {disabled ? "Audit quota exhausted (0 Audits Remaining). File intake & local parsing are locked." : "Upload Contract/Renewal PDF or Usage/Invoice CSV"}
         </p>
-        <label className="btn btn-primary" style={{ marginTop: "12px", cursor: "pointer" }}>
+        <label
+          className={`btn ${disabled ? "btn-secondary disabled" : "btn-primary"}`}
+          style={{
+            marginTop: "12px",
+            cursor: disabled ? "not-allowed" : "pointer",
+            opacity: disabled ? 0.6 : 1,
+            pointerEvents: disabled ? "none" : "auto"
+          }}
+        >
           <span>Browse Local Files</span>
           <input
             type="file"
             multiple
             accept=".pdf,.csv"
+            disabled={disabled}
             onChange={handleFileSelect}
             style={{ display: "none" }}
           />
         </label>
-        <div style={{ marginTop: "12px", fontSize: "0.75rem", color: "var(--accent-emerald)", fontWeight: 600 }}>
-          🔒 100% Client-Side Local Parsing • Native SHA-256 Hashed • Zero Backend Binary Submission
-        </div>
+        {disabled && (
+          <div style={{ marginTop: "16px" }}>
+            <div className="badge badge-rose" style={{ padding: "10px 14px", borderRadius: "8px", display: "inline-flex", alignItems: "center", gap: "8px" }}>
+              <span>🔒 Gate 0 Hard Lock: Quota exhausted. Please upgrade entitlement to parse new files.</span>
+              {onOpenLicenseModal && (
+                <button
+                  className="btn btn-primary btn-sm"
+                  style={{ marginLeft: "8px", fontSize: "0.8rem", padding: "4px 10px" }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onOpenLicenseModal();
+                  }}
+                >
+                  🔑 Upgrade License
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {!disabled && (
+          <div style={{ marginTop: "12px", fontSize: "0.75rem", color: "var(--accent-emerald)", fontWeight: 600 }}>
+            🔒 100% Client-Side Local Parsing • Native SHA-256 Hashed • Zero Backend Binary Submission
+          </div>
+        )}
       </div>
 
       {parsingError && (

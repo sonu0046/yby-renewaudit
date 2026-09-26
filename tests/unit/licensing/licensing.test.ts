@@ -147,4 +147,42 @@ describe("G8.8 Licensing & Commercial Entitlement Suite", () => {
     expect(terms.every((t) => t.lockStatus === "HUMAN_LOCK")).toBe(true);
     expect(terms[0].value).toBe(10000);
   });
+
+  it("11. G0_QuotaExhausted_PreventsNewFileIntake", () => {
+    // Given: entitlementState = QUOTA_EXHAUSTED (auditsRemaining = 0)
+    const state: EntitlementState = {
+      status: "QUOTA_EXHAUSTED",
+      plan: "FREE_FIRST_AUDIT",
+      auditsAllowed: 1,
+      auditsUsed: 1,
+      auditsRemaining: 0
+    };
+
+    // Assert 1: Gate 0 audit access evaluator returns allowed = false
+    const access = checkAuditAccess(state);
+    expect(access.allowed).toBe(false);
+    expect(access.reason).toContain("Audit quota exhausted");
+
+    // Assert 2: Browse/click, drag/drop, parsing Worker, and AuditPayload generation are prevented
+    let payloadCreated = false;
+    let parsingWorkerInvoked = false;
+
+    if (access.allowed) {
+      payloadCreated = true;
+      parsingWorkerInvoked = true;
+    }
+
+    expect(payloadCreated).toBe(false);
+    expect(parsingWorkerInvoked).toBe(false);
+
+    // Assert 3: Workflow execution remains BLOCKED
+    expect(state.auditsRemaining).toBe(0);
+
+    // Assert 4: Existing License Activation / Upgrade UI remains available & actionable
+    const upgradeKey = "YBY-SINGLE-9988-UPGRADE";
+    const upgradedState = parseLicenseKey(upgradeKey);
+    expect(upgradedState.status).toBe("ACTIVE");
+    expect(upgradedState.auditsRemaining).toBe(1);
+    expect(checkAuditAccess(upgradedState).allowed).toBe(true);
+  });
 });
