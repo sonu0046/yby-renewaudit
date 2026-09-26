@@ -7,6 +7,7 @@ import { EvidencePack } from "./components/evidence/EvidencePack";
 import { NegotiationDraftView } from "./components/negotiation/NegotiationDraftView";
 import { CommercialTermsView } from "./components/commercial/CommercialTermsView";
 import { LicenseActivationModal } from "./components/commercial/LicenseActivationModal";
+import { LegalFooterModal, type LegalModalTab } from "./components/legal/LegalFooterModal";
 import { parseLicenseKey, checkAuditAccess, consumeAuditCredit, PLAN_CONFIGS, loadPersistedEntitlement, savePersistedEntitlement } from "./licensing/entitlement";
 import type { EntitlementState } from "./licensing/types";
 import type { AuditPayload, ReconciliationResult, CalculationTerm } from "./types";
@@ -24,6 +25,13 @@ export default function App() {
   const [entitlement, setEntitlement] = useState<EntitlementState>(() => loadPersistedEntitlement());
   const [showLicenseModal, setShowLicenseModal] = useState(false);
   const [consumedForCurrentSession, setConsumedForCurrentSession] = useState(false);
+  const [showLegalModal, setShowLegalModal] = useState(false);
+  const [legalModalTab, setLegalModalTab] = useState<LegalModalTab>("contact");
+
+  function openLegalPage(tab: LegalModalTab) {
+    setLegalModalTab(tab);
+    setShowLegalModal(true);
+  }
 
   function updateEntitlementState(newState: EntitlementState) {
     setEntitlement(newState);
@@ -306,6 +314,77 @@ export default function App() {
           </div>
         </section>
       )}
+
+      {showLegalModal && (
+        <LegalFooterModal
+          initialTab={legalModalTab}
+          onClose={() => setShowLegalModal(false)}
+        />
+      )}
+
+      {/* Global Commercial & Legal Compliance Footer */}
+      <footer
+        style={{
+          marginTop: "40px",
+          padding: "24px 0",
+          borderTop: "1px solid var(--border-color, rgba(255,255,255,0.1))",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: "16px",
+          color: "var(--text-secondary, #94a3b8)",
+          fontSize: "0.85rem"
+        }}
+      >
+        <div>
+          <strong>YBY RenewAudit</strong> — Audit the renewal before you approve it.
+          <div style={{ fontSize: "0.78rem", marginTop: "4px" }}>
+            100% Client-Side In-Browser Audit Engine • Zero Network PII Transmission
+          </div>
+        </div>
+
+        <div style={{ display: "flex", gap: "16px", flexWrap: "wrap" }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+            onClick={() => {
+              setActiveTab("commercial");
+              openLegalPage("pricing");
+            }}
+          >
+            💎 Pricing
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+            onClick={() => openLegalPage("contact")}
+          >
+            📞 Contact Us
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+            onClick={() => openLegalPage("refund")}
+          >
+            ↩️ Refund Policy
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+            onClick={() => openLegalPage("privacy")}
+          >
+            🛡️ Privacy Policy
+          </button>
+          <button
+            className="btn btn-secondary btn-sm"
+            style={{ fontSize: "0.8rem", padding: "4px 10px" }}
+            onClick={() => openLegalPage("terms")}
+          >
+            📜 Terms &amp; Conditions
+          </button>
+        </div>
+      </footer>
     </main>
   );
 }
