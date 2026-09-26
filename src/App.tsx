@@ -45,7 +45,7 @@ export default function App() {
     }
 
     const access = checkAuditAccess(entitlement);
-    if (!access.allowed && !consumedForCurrentSession) {
+    if (!access.allowed) {
       alert(`Gate 0 Licensing Check Failed: ${access.reason}`);
       setShowLicenseModal(true);
       return;
@@ -83,6 +83,7 @@ export default function App() {
             return next;
           });
           setConsumedForCurrentSession(true);
+          setShowLicenseModal(true);
         }
       }
     };
