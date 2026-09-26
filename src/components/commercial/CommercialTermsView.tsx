@@ -98,7 +98,7 @@ export function CommercialTermsView({ identifiedSavings = 160000 }: CommercialTe
         {/* Tier 3: Professional Monthly */}
         <div className="metric-card" style={{ borderTop: "3px solid var(--accent-amber, #f59e0b)" }}>
           <div className="metric-label" style={{ fontSize: "1rem", fontWeight: 700 }}>3️⃣ Professional Monthly</div>
-          <div className="metric-value amber" style={{ fontSize: "1.4rem", margin: "10px 0" }}>₹9,999 / Month</div>
+          <div className="metric-value amber" style={{ fontSize: "1.4rem", margin: "10px 0" }}>₹4,999 / Month</div>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: "1.4" }}>
             <strong>Limit:</strong> Max 5 Audit Cases / month.<br />
             Introductory pricing for first 10–15 paying customers.
@@ -108,10 +108,10 @@ export function CommercialTermsView({ identifiedSavings = 160000 }: CommercialTe
         {/* Tier 4: Annual Professional */}
         <div className="metric-card" style={{ borderTop: "3px solid var(--accent-rose, #f43f5e)" }}>
           <div className="metric-label" style={{ fontSize: "1rem", fontWeight: 700 }}>4️⃣ Annual Professional</div>
-          <div className="metric-value rose" style={{ fontSize: "1.4rem", margin: "10px 0" }}>₹99,990 / Year</div>
+          <div className="metric-value rose" style={{ fontSize: "1.4rem", margin: "10px 0" }}>₹49,990 / Year</div>
           <p style={{ color: "var(--text-secondary)", fontSize: "0.85rem", lineHeight: "1.4" }}>
             <strong>Limit:</strong> Max 60 Audit Cases / year.<br />
-            ~₹8,332/mo equivalent (Introductory pricing for first 10 annual buyers).
+            ~₹4,166/mo equivalent (Introductory pricing for first 10 annual buyers).
           </p>
         </div>
       </div>
