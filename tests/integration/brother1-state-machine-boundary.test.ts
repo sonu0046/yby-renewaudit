@@ -5,6 +5,7 @@ import { PaymentWebhookHandler, computeWebhookHmac, getWebhookSecret } from "../
 import { ProductionLicensingService } from "../../src/licensing/server/licensingService";
 import type { CalculationTerm } from "../../src/types";
 import type { EntitlementState } from "../../src/licensing/types";
+import { extractTermsFromFiles } from "../../src/parsers/extractor";
 
 describe("Brother 1 State Machine Boundary & Non-Regression Suite", () => {
   beforeEach(() => {
@@ -263,5 +264,58 @@ describe("Brother 1 State Machine Boundary & Non-Regression Suite", () => {
     expect(files).toHaveLength(1);
     expect(files[0].name).toBe("contract_msa.pdf");
     expect(files[0].sha256).toBe("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");
+  });
+
+  it("11. Step1_EditBack_BeforeHumanLock_DoesNotLeaveStaleTerms", () => {
+    // 1. Given: PDF A uploaded, terms extracted, and locked in Step 2
+    const pdfA = {
+      id: "file-a",
+      file: new File(["contract a content"], "contract_vendor_a.pdf", { type: "application/pdf" }),
+      name: "contract_vendor_a.pdf",
+      size: 20480,
+      type: "PDF" as const,
+      sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      parsedText: "Contract A Price Cap: $10,000 Total: $12,000 Seats: 100"
+    };
+
+    let files = [pdfA];
+    let terms = extractTermsFromFiles(files);
+
+    // User locks terms in Step 2 for PDF A
+    terms = terms.map((t) => ({ ...t, lockStatus: "HUMAN_LOCK" as const }));
+    expect(terms.every((t) => t.lockStatus === "HUMAN_LOCK")).toBe(true);
+    expect(terms[0].sourceRef.fileName).toBe("contract_vendor_a.pdf");
+    expect(terms[0].sourceRef.fileSha256).toBe(pdfA.sha256);
+
+    // 2. When: User returns to Step 1 and replaces PDF A with PDF B before locking final audit
+    const pdfB = {
+      id: "file-b",
+      file: new File(["contract b content"], "contract_vendor_b.pdf", { type: "application/pdf" }),
+      name: "contract_vendor_b.pdf",
+      size: 40960,
+      type: "PDF" as const,
+      sha256: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      parsedText: "Contract B Price Cap: $15,000 Total: $18,000 Seats: 200"
+    };
+
+    files = [pdfB];
+    // Re-extract terms for current files (handleFilesUpdated)
+    terms = extractTermsFromFiles(files);
+
+    // 3. Assert: Terms recomputed for PDF B, old locks invalidated, sourceRef points to PDF B
+    expect(terms[0].sourceRef.fileName).toBe("contract_vendor_b.pdf");
+    expect(terms[0].sourceRef.fileSha256).toBe(pdfB.sha256);
+    expect(terms[0].value).toBe(15000);
+
+    // Lock status MUST return to BLOCKED for unverified new file
+    expect(terms.every((t) => t.lockStatus === "BLOCKED")).toBe(true);
+
+    // Human Lock CANNOT remain PASS using terms from PDF A
+    const allLocked = terms.length > 0 && terms.every((t) => t.lockStatus === "HUMAN_LOCK");
+    expect(allLocked).toBe(false);
+
+    // Regression: Quota remains unchanged (1 credit)
+    const entitlement = parseLicenseKey("FREE");
+    expect(entitlement.auditsRemaining).toBe(1);
   });
 });
