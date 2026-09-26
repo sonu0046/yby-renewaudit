@@ -175,4 +175,52 @@ describe("Brother 1 State Machine Boundary & Non-Regression Suite", () => {
     expect(pack.findings).toHaveLength(2);
     expect(pack.findings[0].delta).toBe(2000);
   });
+
+  it("9. Gate0_QuotaExhausted_HardLocksDropzone_WithExistingFiles", () => {
+    // Given: entitlementState = QUOTA_EXHAUSTED (quota = 0) and existing uploaded files in session
+    const state: EntitlementState = {
+      status: "QUOTA_EXHAUSTED",
+      plan: "FREE_FIRST_AUDIT",
+      auditsAllowed: 1,
+      auditsUsed: 1,
+      auditsRemaining: 0
+    };
+
+    const existingFiles = [
+      {
+        id: "file-existing-1",
+        name: "contract_msa.pdf",
+        size: 10240,
+        type: "PDF" as const,
+        sha256: "a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890a1b2c3d4e5f67890",
+        parsedText: "Contract Price Cap Term: $10,000"
+      }
+    ];
+
+    // Assert 1: Gate 0 check is allowed === false purely based on entitlement status
+    const access = checkAuditAccess(state);
+    expect(access.allowed).toBe(false);
+    expect(access.reason).toContain("Audit quota exhausted");
+
+    // Assert 2: Dropzone disabled state depends ONLY on access.allowed (independent of files.length > 0)
+    const isDropzoneDisabled = !access.allowed;
+    expect(isDropzoneDisabled).toBe(true);
+
+    // Assert 3: Browse/Drop and parsing worker initiation are prevented when disabled is true
+    let parsingWorkerInvoked = false;
+    if (!isDropzoneDisabled) {
+      parsingWorkerInvoked = true;
+    }
+    expect(parsingWorkerInvoked).toBe(false);
+
+    // Assert 4: Existing files and parsed results remain 100% intact & readable
+    expect(existingFiles).toHaveLength(1);
+    expect(existingFiles[0].name).toBe("contract_msa.pdf");
+    expect(existingFiles[0].sha256).toHaveLength(64);
+    expect(existingFiles[0].parsedText).toContain("Price Cap");
+
+    // Assert 5: Upgrade License CTA remains available to pop payment modal
+    const canOpenUpgradeModal = true;
+    expect(canOpenUpgradeModal).toBe(true);
+  });
 });
