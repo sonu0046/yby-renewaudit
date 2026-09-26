@@ -153,7 +153,7 @@ export function LegalFooterModal({ initialTab = "contact", onClose }: LegalFoote
               </div>
 
               <p style={{ marginTop: "16px" }}>
-                To request a refund for unconsumed AVAILABLE credits, email <a href="mailto:refunds@yby-renewaudit.com" style={{ color: "var(--accent-cyan)" }}>refunds@yby-renewaudit.com</a> with your Payment ID. Approved refunds settle back to your original payment method within 5–7 business days.
+                To request a refund for unconsumed AVAILABLE credits, email <a href="mailto:ybyoutsourcing@zohomail.in" style={{ color: "var(--accent-cyan)" }}>ybyoutsourcing@zohomail.in</a> with your Payment ID. Approved refunds settle back to your original payment method within 5–7 business days.
               </p>
             </div>
           )}
