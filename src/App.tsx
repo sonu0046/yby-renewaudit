@@ -92,7 +92,7 @@ export default function App() {
 
   function handleFilesUpdated(newFiles: FileIntakeItem[]) {
     const access = checkAuditAccess(entitlement);
-    if (!access.allowed) {
+    if (!access.allowed && !consumedForCurrentSession && files.length === 0) {
       setShowLicenseModal(true);
       return;
     }
@@ -238,7 +238,7 @@ export default function App() {
           <FileDropzone
             onFilesUpdated={handleFilesUpdated}
             items={files}
-            disabled={!checkAuditAccess(entitlement).allowed}
+            disabled={!checkAuditAccess(entitlement).allowed && !consumedForCurrentSession && files.length === 0}
             onOpenLicenseModal={() => setShowLicenseModal(true)}
           />
         </section>

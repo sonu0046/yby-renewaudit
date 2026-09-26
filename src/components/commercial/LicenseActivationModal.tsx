@@ -141,10 +141,14 @@ export function LicenseActivationModal({ currentState, onStateChange, onClose }:
       )}
 
       {/* Server-Verified Payment Upgrade Options */}
-      <div style={{ marginBottom: "20px", padding: "16px", background: "rgba(16, 185, 129, 0.05)", borderRadius: "8px", border: "1px solid rgba(16, 185, 129, 0.2)" }}>
-        <h4 style={{ marginBottom: "10px", color: "var(--accent-emerald)" }}>💳 Pay &amp; Upgrade Entitlement (Server-Verified Flow)</h4>
+      <div style={{ marginBottom: "20px", padding: "16px", background: accessCheck.allowed ? "rgba(6, 182, 212, 0.05)" : "rgba(244, 63, 94, 0.05)", borderRadius: "8px", border: `1px solid ${accessCheck.allowed ? "rgba(6, 182, 212, 0.2)" : "rgba(244, 63, 94, 0.2)"}` }}>
+        <h4 style={{ marginBottom: "10px", color: accessCheck.allowed ? "var(--accent-cyan)" : "var(--accent-rose)" }}>
+          {accessCheck.allowed ? "💎 Upgrade / Renew Entitlement (Server-Verified Flow)" : "💳 Pay & Upgrade Entitlement (Required Recovery Action)"}
+        </h4>
         <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: "12px" }}>
-          Select a commercial plan below to initiate server-verified payment settlement:
+          {accessCheck.allowed
+            ? `Your current plan is ACTIVE (${currentState.auditsRemaining} audit credit(s) remaining). You may purchase additional credits or upgrade below:`
+            : "Select a commercial plan below to initiate server-verified payment settlement and reactivate audit access:"}
         </p>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <button
