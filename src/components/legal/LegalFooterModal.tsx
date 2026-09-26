@@ -120,10 +120,10 @@ export function LegalFooterModal({ initialTab = "contact", onClose }: LegalFoote
               <p>For customer support, billing inquiries, or licensing assistance, reach out to our commercial team:</p>
               
               <div style={{ background: "rgba(255,255,255,0.03)", padding: "16px", borderRadius: "8px", marginTop: "16px", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <p><strong>🏢 Company Name:</strong> YBY RenewAudit / YBY Outsourcing Services</p>
-                <p><strong>📧 Support Email:</strong> <a href="mailto:support@yby-renewaudit.com" style={{ color: "var(--accent-cyan, #06b6d4)" }}>support@yby-renewaudit.com</a></p>
-                <p><strong>📞 Telephone Support:</strong> +91 98765 43210 / +91 20 4987 6543</p>
-                <p><strong>📍 Registered Address:</strong> Level 4, YBY Tech Center, Baner Road, Pune, Maharashtra, India — 411045</p>
+                <p><strong>🏢 Company:</strong> YBY RenewAudit / YBY Outsourcing Services</p>
+                <p><strong>📧 Support Email:</strong> <a href="mailto:ybyoutsourcing@zohomail.in" style={{ color: "var(--accent-cyan, #06b6d4)" }}>ybyoutsourcing@zohomail.in</a></p>
+                <p><strong>📞 Phone:</strong> <a href="tel:+917020690046" style={{ color: "var(--accent-cyan, #06b6d4)" }}>+91 7020690046</a></p>
+                <p><strong>📍 Address:</strong> YBY Tech Center, Latur, Maharashtra – 413512</p>
                 <p><strong>⏰ Operating Hours:</strong> Monday – Friday, 9:00 AM – 6:00 PM IST (Response within 24–48 Business Hours)</p>
               </div>
             </div>
